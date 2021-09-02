@@ -77,13 +77,32 @@ func runPushCommand(manifestPath string) error {
 
 	var sourcesToPush []manifest.Source
 	for _, source := range sources {
-		exists, err := client.ImageExistsAtRemote(ctx, source.TargetImage())
-		if err != nil {
-			return fmt.Errorf("image exists at remote: %w", err)
+
+		// support tag:*
+		var sourcesAll []manifest.Source
+		if source.Tag == "*" {
+			tags, err := client.GetTagsForRepository(ctx, source.Host, source.Repository)
+			if err != nil {
+				return fmt.Errorf("get all tags error: %w", err)
+			}
+			for _, tag := range tags{
+				source.Tag = tag
+				sourcesAll = append(sourcesAll, source)
+			}
+		} else {
+			sourcesAll = append(sourcesAll, source)
 		}
 
-		if !exists {
-			sourcesToPush = append(sourcesToPush, source)
+		for _, s := range sourcesAll {
+
+			exists, err := client.ImageExistsAtRemote(ctx, s.TargetImage())
+			if err != nil {
+				return fmt.Errorf("image exists at remote: %w", err)
+			}
+
+			if !exists {
+				sourcesToPush = append(sourcesToPush, s)
+			}
 		}
 	}
 
